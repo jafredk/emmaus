@@ -12,8 +12,9 @@ const missingAdminKeys = requiredAdminKeys.filter((key) => !process.env[key]);
 export const firebaseAdminConfigReady = missingAdminKeys.length === 0;
 export const firebaseAdminMissingKeys = missingAdminKeys;
 
-let adminAuth: ReturnType<typeof getAuth> | null = null;
 let firebaseAdminInitError: string | null = null;
+let adminAuthInstance: ReturnType<typeof getAuth> | null = null;
+let initialized = false;
 
 function decodeBase64(value: string) {
   try {
@@ -60,7 +61,17 @@ function normalizePrivateKey(rawValue?: string) {
   return null;
 }
 
-if (firebaseAdminConfigReady) {
+function initializeFirebaseAdmin() {
+  if (initialized) {
+    return;
+  }
+
+  initialized = true;
+
+  if (!firebaseAdminConfigReady) {
+    return;
+  }
+
   try {
     const privateKey = normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
 
@@ -78,13 +89,21 @@ if (firebaseAdminConfigReady) {
               }),
             });
 
-      adminAuth = getAuth(app);
+      adminAuthInstance = getAuth(app);
     }
   } catch (error) {
     firebaseAdminInitError =
       error instanceof Error ? error.message : "Firebase Admin initialization failed";
-    adminAuth = null;
+    adminAuthInstance = null;
   }
 }
 
-export { adminAuth, firebaseAdminInitError };
+export function getAdminAuth() {
+  initializeFirebaseAdmin();
+  return adminAuthInstance;
+}
+
+export function getFirebaseAdminInitError() {
+  initializeFirebaseAdmin();
+  return firebaseAdminInitError;
+}

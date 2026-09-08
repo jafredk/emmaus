@@ -2,11 +2,21 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { getServerUser } from "@/lib/auth-server";
-import { adminAuth, firebaseAdminMissingKeys } from "@/lib/firebase-admin";
+import {
+  firebaseAdminMissingKeys,
+  getAdminAuth,
+  getFirebaseAdminInitError,
+} from "@/lib/firebase-admin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const SESSION_COOKIE_NAME = "session";
 
 export async function POST(request: Request) {
+  const adminAuth = getAdminAuth();
+  const firebaseAdminInitError = getFirebaseAdminInitError();
+
   try {
     const { token } = await request.json();
 
@@ -30,6 +40,7 @@ export async function POST(request: Request) {
         {
           error: "Firebase Admin is not configured",
           missingKeys: firebaseAdminMissingKeys,
+          initError: firebaseAdminInitError,
         },
         { status: 503 },
       );

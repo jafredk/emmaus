@@ -1,12 +1,13 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { adminAuth } from "@/lib/firebase-admin";
+import { getAdminAuth } from "@/lib/firebase-admin";
 import { resolveUserRole } from "@/lib/roles";
 import type { UserRole } from "@/types";
 
 export async function getServerUser() {
   const token = (await cookies()).get("session")?.value;
+  const adminAuth = getAdminAuth();
 
   if (!token) {
     return null;

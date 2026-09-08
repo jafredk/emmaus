@@ -3,11 +3,14 @@ import { z } from "zod";
 
 import { getServerUser } from "@/lib/auth-server";
 import {
-  adminAuth,
   firebaseAdminConfigReady,
-  firebaseAdminInitError,
   firebaseAdminMissingKeys,
+  getAdminAuth,
+  getFirebaseAdminInitError,
 } from "@/lib/firebase-admin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const claimSchema = z.object({
   email: z.string().email("Provide a valid user email"),
@@ -21,6 +24,8 @@ const claimSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const adminAuth = getAdminAuth();
+  const firebaseAdminInitError = getFirebaseAdminInitError();
   const actor = await getServerUser();
 
   if (!actor) {
