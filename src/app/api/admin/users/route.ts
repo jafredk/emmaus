@@ -5,6 +5,7 @@ import { getServerUser } from "@/lib/auth-server";
 import {
   adminAuth,
   firebaseAdminConfigReady,
+  firebaseAdminInitError,
   firebaseAdminMissingKeys,
 } from "@/lib/firebase-admin";
 
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
       {
         error: "Firebase Admin configuration is missing",
         missingKeys: firebaseAdminMissingKeys,
+        initError: firebaseAdminInitError,
       },
       { status: 503 },
     );

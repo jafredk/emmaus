@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getServerUser } from "@/lib/auth-server";
-import { adminAuth, firebaseAdminConfigReady, firebaseAdminMissingKeys } from "@/lib/firebase-admin";
+import {
+  adminAuth,
+  firebaseAdminConfigReady,
+  firebaseAdminInitError,
+  firebaseAdminMissingKeys,
+} from "@/lib/firebase-admin";
 
 const claimSchema = z.object({
   email: z.string().email("Provide a valid user email"),
@@ -31,6 +36,7 @@ export async function POST(request: Request) {
       {
         error: "Firebase Admin configuration is missing",
         missingKeys: firebaseAdminMissingKeys,
+        initError: firebaseAdminInitError,
       },
       { status: 503 },
     );

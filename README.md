@@ -31,6 +31,14 @@ FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
 ```
 
+For Vercel deployments, set `FIREBASE_PRIVATE_KEY` as the full PEM with escaped newlines:
+
+```env
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"
+```
+
+You can also provide a base64-encoded PEM string if your environment tooling rewrites multiline values.
+
 5. Run the development server:
 
 ```bash
