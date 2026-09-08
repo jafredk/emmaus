@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6fbff;
+  --foreground: #13324a;
+  --card: #ffffff;
+  --border: #d8e8f5;
+  --primary: #0f5ea8;
+  --primary-foreground: #f7fbff;
+  --teal: #0f8f94;
+  --success: #1f9d55;
+  --warning: #ea7a16;
+  --danger: #cc2f2f;
+  --muted: #5f7e95;
+  --ring: #0f5ea8;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-teal: var(--teal);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-muted: var(--muted);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), "Segoe UI", sans-serif;
+}
+
+* {
+  border-color: var(--border);
+}
+
+.healthcare-bg {
+  background:
+    radial-gradient(circle at 20% 20%, #d8efff 0, transparent 40%),
+    radial-gradient(circle at 85% 15%, #d8fbff 0, transparent 36%),
+    linear-gradient(180deg, #f8fcff 0%, #eef7ff 100%);
+}

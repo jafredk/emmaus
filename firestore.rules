@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function email() {
+      return signedIn() && request.auth.token.email != null ? request.auth.token.email : "";
+    }
+
+    function claimRole() {
+      return signedIn() && request.auth.token.role != null ? request.auth.token.role : "";
+    }
+
+    function hasClaimRole(role) {
+      return claimRole() == role;
+    }
+
+    function emailHas(keyword) {
+      return email().matches("(?i).*" + keyword + ".*");
+    }
+
+    function isRoleInferred(role) {
+      return role == "ADMINISTRATOR" && emailHas("admin")
+        || role == "DOCTOR" && emailHas("doctor")
+        || role == "LAB_TECHNICIAN" && emailHas("lab")
+        || role == "PHARMACIST" && emailHas("pharm")
+        || role == "RECEPTIONIST"
+          && !emailHas("admin")
+          && !emailHas("doctor")
+          && !emailHas("lab")
+          && !emailHas("pharm");
+    }
+
+    function isAdmin() {
+      return hasClaimRole("ADMINISTRATOR") || isRoleInferred("ADMINISTRATOR");
+    }
+
+    function isReceptionist() {
+      return hasClaimRole("RECEPTIONIST")
+        || isRoleInferred("RECEPTIONIST")
+        || email() == "jafredjin@mail.com";
+    }
+
+    function isDoctor() {
+      return hasClaimRole("DOCTOR") || isRoleInferred("DOCTOR");
+    }
+
+    function isLabTechnician() {
+      return hasClaimRole("LAB_TECHNICIAN") || isRoleInferred("LAB_TECHNICIAN");
+    }
+
+    function isPharmacist() {
+      return hasClaimRole("PHARMACIST") || isRoleInferred("PHARMACIST");
+    }
+
+    function canReadPatients() {
+      return signedIn() && (isAdmin() || isReceptionist() || isDoctor());
+    }
+
+    function canCreatePatients() {
+      return signedIn() && (isAdmin() || isReceptionist());
+    }
+
+    function canCreateConsultation() {
+      return signedIn() && (isAdmin() || isDoctor());
+    }
+
+    function canReadLabQueue() {
+      return signedIn() && (isAdmin() || isDoctor() || isLabTechnician());
+    }
+
+    function canReadPharmacyQueue() {
+      return signedIn() && (isAdmin() || isDoctor() || isPharmacist());
+    }
+
+    match /patients/{patientId} {
+      allow read: if canReadPatients();
+
+      allow create: if canCreatePatients()
+        && request.resource.data.patientNumber is string
+        && request.resource.data.firstName is string
+        && request.resource.data.lastName is string
+        && request.resource.data.phoneNumber is string
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.createdByEmail is string
+        && request.resource.data.createdByEmail.lower() == request.auth.token.email.lower();
+
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /consultations/{consultationId} {
+      allow create: if canCreateConsultation()
+        && request.resource.data.patientId is string
+        && request.resource.data.patientNumber is string
+        && request.resource.data.patientName is string
+        && request.resource.data.prescriptions is string
+        && request.resource.data.nextAction is string
+        && request.resource.data.doctorUid == request.auth.uid
+        && request.resource.data.doctorEmail is string
+        && request.resource.data.doctorEmail.lower() == request.auth.token.email.lower();
+
+      allow read: if signedIn() && (isAdmin() || isDoctor());
+      allow update, delete: if isAdmin();
+    }
+
+    match /labRequests/{requestId} {
+      allow create: if canCreateConsultation()
+        && request.resource.data.patientId is string
+        && request.resource.data.patientNumber is string
+        && request.resource.data.patientName is string
+        && request.resource.data.testType is string
+        && request.resource.data.status is string
+        && request.resource.data.doctorUid == request.auth.uid
+        && request.resource.data.doctorEmail is string
+        && request.resource.data.doctorEmail.lower() == request.auth.token.email.lower();
+
+      allow read: if canReadLabQueue();
+      allow update: if isAdmin() || isLabTechnician();
+      allow delete: if isAdmin();
+    }
+
+    match /pharmacyQueue/{requestId} {
+      allow create: if canCreateConsultation()
+        && request.resource.data.patientId is string
+        && request.resource.data.patientNumber is string
+        && request.resource.data.patientName is string
+        && request.resource.data.medications is string
+        && request.resource.data.status is string
+        && request.resource.data.doctorUid == request.auth.uid
+        && request.resource.data.doctorEmail is string
+        && request.resource.data.doctorEmail.lower() == request.auth.token.email.lower();
+
+      allow read: if canReadPharmacyQueue();
+      allow update: if isAdmin() || isPharmacist();
+      allow delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
