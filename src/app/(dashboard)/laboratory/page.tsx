@@ -15,6 +15,7 @@ type LabRequest = {
   patientName: string;
   testType: string;
   diagnosis: string;
+  requestedBy?: string;
   status: "Pending" | "In Progress" | "Completed";
   createdAt?: Timestamp;
 };
@@ -94,6 +95,7 @@ export default function LaboratoryPage() {
                     <TH>Patient</TH>
                     <TH>Test Type</TH>
                     <TH>Diagnosis</TH>
+                    <TH>Requested By</TH>
                     <TH>Status</TH>
                     <TH>Requested</TH>
                   </tr>
@@ -105,6 +107,7 @@ export default function LaboratoryPage() {
                       <TD>{request.patientName}</TD>
                       <TD>{request.testType}</TD>
                       <TD>{request.diagnosis}</TD>
+                      <TD>{request.requestedBy || "Doctor"}</TD>
                       <TD>
                         <Badge
                           variant={

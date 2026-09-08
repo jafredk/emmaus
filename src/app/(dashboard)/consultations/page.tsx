@@ -158,24 +158,26 @@ export default function ConsultationsPage() {
           status: "Pending",
           doctorUid: user.uid,
           doctorEmail: user.email,
+          requestedBy: user.displayName || user.email,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        await addDoc(collection(firestore, "pharmacyQueue"), {
+          consultationId: consultationRef.id,
+          patientId: selectedPatient.id,
+          patientNumber: selectedPatient.patientNumber,
+          patientName: formatPatientName(selectedPatient),
+          diagnosis: values.finalDiagnosis,
+          medications: values.prescriptions,
+          status: "Pending Dispense",
+          doctorUid: user.uid,
+          doctorEmail: user.email,
+          requestedBy: user.displayName || user.email,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
       }
-
-      await addDoc(collection(firestore, "pharmacyQueue"), {
-        consultationId: consultationRef.id,
-        patientId: selectedPatient.id,
-        patientNumber: selectedPatient.patientNumber,
-        patientName: formatPatientName(selectedPatient),
-        diagnosis: values.finalDiagnosis,
-        medications: values.prescriptions,
-        status: values.nextAction === "LAB" ? "Awaiting Lab Result" : "Pending Dispense",
-        doctorUid: user.uid,
-        doctorEmail: user.email,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
 
       form.reset({
         chiefComplaint: "",

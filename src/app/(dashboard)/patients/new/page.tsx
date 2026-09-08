@@ -1,9 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, limit, onSnapshot, orderBy, query, serverTimestamp } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -14,11 +15,22 @@ import { RoleGate } from "@/components/providers/role-gate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Table, TD, TH } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { firestore } from "@/lib/firebase-client";
 import { patientSchema } from "@/lib/validations";
 
 type PatientInput = z.infer<typeof patientSchema>;
+
+type ExistingPatientRecord = {
+  id: string;
+  patientNumber: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  phoneNumber: string;
+  nationalId: string;
+};
 
 function generatePatientNumber() {
   const date = new Date();
@@ -57,6 +69,9 @@ function getFirestoreErrorMessage(error: unknown) {
 export default function NewPatientPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [existingPatients, setExistingPatients] = useState<ExistingPatientRecord[]>([]);
+  const [loadingPatients, setLoadingPatients] = useState(true);
 
   const form = useForm<PatientInput>({
     resolver: zodResolver(patientSchema),
@@ -80,6 +95,61 @@ export default function NewPatientPage() {
     },
   });
 
+  useEffect(() => {
+    if (!firestore) {
+      setLoadingPatients(false);
+      return;
+    }
+
+    const patientsQuery = query(
+      collection(firestore, "patients"),
+      orderBy("createdAt", "desc"),
+      limit(200),
+    );
+
+    const unsubscribe = onSnapshot(
+      patientsQuery,
+      (snapshot) => {
+        setExistingPatients(
+          snapshot.docs.map((entry) => ({
+            id: entry.id,
+            ...(entry.data() as Omit<ExistingPatientRecord, "id">),
+          })),
+        );
+        setLoadingPatients(false);
+      },
+      () => {
+        setLoadingPatients(false);
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const filteredPatients = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+
+    if (!term) {
+      return existingPatients.slice(0, 8);
+    }
+
+    return existingPatients
+      .filter((patient) => {
+        const fullName = [patient.firstName, patient.middleName, patient.lastName]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return (
+          patient.patientNumber?.toLowerCase().includes(term)
+          || fullName.includes(term)
+          || patient.phoneNumber?.toLowerCase().includes(term)
+          || patient.nationalId?.toLowerCase().includes(term)
+        );
+      })
+      .slice(0, 20);
+  }, [existingPatients, searchTerm]);
+
   const onSubmit = async (values: PatientInput) => {
     if (!firestore) {
       toast.error("Firestore is not configured. Add Firebase keys to .env.local.");
@@ -92,8 +162,6 @@ export default function NewPatientPage() {
     }
 
     try {
-      toast.info(`Debug Auth: uid=${user.uid}, email=${user.email || "(none)"}`);
-
       const patientNumber = generatePatientNumber();
 
       const payload = {
@@ -148,6 +216,46 @@ export default function NewPatientPage() {
             Patient number is generated automatically when submitted.
           </p>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Find Existing Patient First</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search by patient number, name, phone, or national ID"
+            />
+
+            {loadingPatients ? (
+              <p className="text-sm text-muted">Loading patients...</p>
+            ) : filteredPatients.length === 0 ? (
+              <p className="text-sm text-muted">No matching patients found. You can continue with new registration.</p>
+            ) : (
+              <Table>
+                <thead>
+                  <tr>
+                    <TH>Patient No.</TH>
+                    <TH>Name</TH>
+                    <TH>Phone</TH>
+                    <TH>National ID</TH>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPatients.map((patient) => (
+                    <tr key={patient.id} className="border-t border-border">
+                      <TD className="font-semibold text-foreground">{patient.patientNumber}</TD>
+                      <TD>{[patient.firstName, patient.middleName, patient.lastName].filter(Boolean).join(" ")}</TD>
+                      <TD>{patient.phoneNumber}</TD>
+                      <TD>{patient.nationalId}</TD>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

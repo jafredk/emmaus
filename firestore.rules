@@ -68,11 +68,11 @@ service cloud.firestore {
     }
 
     function canReadLabQueue() {
-      return signedIn() && (isAdmin() || isDoctor() || isLabTechnician());
+      return signedIn() && (isAdmin() || isLabTechnician());
     }
 
     function canReadPharmacyQueue() {
-      return signedIn() && (isAdmin() || isDoctor() || isPharmacist());
+      return signedIn() && (isAdmin() || isPharmacist());
     }
 
     match /patients/{patientId} {

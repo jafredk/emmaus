@@ -15,6 +15,7 @@ type PharmacyQueueItem = {
   patientName: string;
   diagnosis: string;
   medications: string;
+  requestedBy?: string;
   status: "Pending Dispense" | "Awaiting Lab Result" | "Dispensed";
   createdAt?: Timestamp;
 };
@@ -94,6 +95,7 @@ export default function PharmacyPage() {
                     <TH>Patient</TH>
                     <TH>Diagnosis</TH>
                     <TH>Prescription</TH>
+                    <TH>Requested By</TH>
                     <TH>Status</TH>
                     <TH>Created</TH>
                   </tr>
@@ -105,6 +107,7 @@ export default function PharmacyPage() {
                       <TD>{item.patientName}</TD>
                       <TD>{item.diagnosis}</TD>
                       <TD>{item.medications}</TD>
+                      <TD>{item.requestedBy || "Doctor"}</TD>
                       <TD>
                         <Badge
                           variant={
