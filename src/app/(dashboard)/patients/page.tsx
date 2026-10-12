@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Timestamp, collection, deleteDoc, doc, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 import { toast } from "sonner";
@@ -223,18 +224,23 @@ export default function PatientsListPage() {
                       <TD>{patient.paymentMethod || "-"}</TD>
                       <TD>{formatCreatedAt(patient.createdAt)}</TD>
                       <TD>
-                        {canDelete ? (
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            disabled={deletingId === patient.id}
-                            onClick={() => deletePatient(patient.id, patient.patientNumber)}
-                          >
-                            {deletingId === patient.id ? "Deleting..." : "Delete"}
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-muted">View only</span>
-                        )}
+                        <div className="flex flex-wrap gap-2">
+                          <Link href={`/consultations?patientId=${patient.id}`}>
+                            <Button size="sm">Treat Patient</Button>
+                          </Link>
+                          {canDelete ? (
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              disabled={deletingId === patient.id}
+                              onClick={() => deletePatient(patient.id, patient.patientNumber)}
+                            >
+                              {deletingId === patient.id ? "Deleting..." : "Delete"}
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted">View only</span>
+                          )}
+                        </div>
                       </TD>
                     </tr>
                   ))}

@@ -8,9 +8,7 @@ import { toast } from "sonner";
 import { MetricCard } from "@/components/layout/metric-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TD, TH } from "@/components/ui/table";
 import { firestore } from "@/lib/firebase-client";
-import { receptionistMetrics } from "@/lib/mock-data";
 
 type PatientStatusRecord = {
   dischargeStatus?: "ACTIVE" | "DISCHARGED" | null;
@@ -19,16 +17,40 @@ type PatientStatusRecord = {
 
 export default function ReceptionistDashboardPage() {
   const [patientStatus, setPatientStatus] = useState({ active: 0, discharged: 0 });
+  const [metrics, setMetrics] = useState({
+    patientsToday: 0,
+    appointmentsToday: 0,
+    waitingForConsultation: 0,
+    completedVisits: 0,
+  });
   const [liveUpdate, setLiveUpdate] = useState(false);
-  const previousStatus = useRef({ active: 0, discharged: 0 });
+  const previousStatus = useRef({ active: 0, discharged: 0, patientsToday: 0 });
+
+  const getDateKey = (value?: Timestamp | string | { toDate?: () => Date } | null) => {
+    if (!value) return null;
+
+    if (typeof value === "string") {
+      return value.slice(0, 10);
+    }
+
+    if ("toDate" in value && typeof value.toDate === "function") {
+      return value.toDate().toISOString().slice(0, 10);
+    }
+
+    return null;
+  };
 
   useEffect(() => {
     if (!firestore) {
       return;
     }
 
+    const todayKey = new Date().toISOString().slice(0, 10);
+
     const patientsQuery = query(collection(firestore, "patients"), orderBy("createdAt", "desc"), limit(200));
-    const unsubscribe = onSnapshot(patientsQuery, (snapshot) => {
+    const appointmentsQuery = query(collection(firestore, "appointments"), orderBy("createdAt", "desc"), limit(200));
+
+    const unsubscribePatients = onSnapshot(patientsQuery, (snapshot) => {
       const stats = snapshot.docs.reduce(
         (acc, docSnapshot) => {
           const data = docSnapshot.data() as PatientStatusRecord;
@@ -40,17 +62,33 @@ export default function ReceptionistDashboardPage() {
             acc.active += 1;
           }
 
+          const createdDate = getDateKey(data.createdAt);
+          if (createdDate === todayKey) {
+            acc.patientsToday += 1;
+          }
+
           return acc;
         },
-        { active: 0, discharged: 0 },
+        { active: 0, discharged: 0, patientsToday: 0 },
       );
 
       const wasUpdated =
         stats.discharged !== previousStatus.current.discharged ||
-        stats.active !== previousStatus.current.active;
+        stats.active !== previousStatus.current.active ||
+        stats.patientsToday !== previousStatus.current.patientsToday;
 
-      previousStatus.current = stats;
-      setPatientStatus(stats);
+      previousStatus.current = {
+        active: stats.active,
+        discharged: stats.discharged,
+        patientsToday: stats.patientsToday,
+      };
+      setPatientStatus({ active: stats.active, discharged: stats.discharged });
+      setMetrics((current) => ({
+        ...current,
+        patientsToday: stats.patientsToday,
+        waitingForConsultation: stats.active,
+        completedVisits: stats.discharged,
+      }));
 
       if (wasUpdated) {
         setLiveUpdate(true);
@@ -59,7 +97,23 @@ export default function ReceptionistDashboardPage() {
       }
     });
 
-    return () => unsubscribe();
+    const unsubscribeAppointments = onSnapshot(appointmentsQuery, (snapshot) => {
+      const appointmentsToday = snapshot.docs.filter((docSnapshot) => {
+        const data = docSnapshot.data() as { appointmentDate?: string | Timestamp | null; createdAt?: Timestamp | null };
+        const dateValue = getDateKey(data.appointmentDate ?? data.createdAt);
+        return dateValue === todayKey;
+      }).length;
+
+      setMetrics((current) => ({
+        ...current,
+        appointmentsToday,
+      }));
+    });
+
+    return () => {
+      unsubscribePatients();
+      unsubscribeAppointments();
+    };
   }, []);
 
   const copyStatusSummary = async () => {
@@ -93,7 +147,12 @@ export default function ReceptionistDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {receptionistMetrics.map((metric) => (
+        {([
+          { title: "Patients Registered Today", value: String(metrics.patientsToday), tone: "primary" as const },
+          { title: "Appointments Today", value: String(metrics.appointmentsToday), tone: "warning" as const },
+          { title: "Waiting for Consultation", value: String(metrics.waitingForConsultation), tone: "warning" as const },
+          { title: "Completed Visits", value: String(metrics.completedVisits), tone: "success" as const },
+        ]).map((metric) => (
           <MetricCard key={metric.title} {...metric} />
         ))}
       </div>

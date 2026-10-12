@@ -175,7 +175,7 @@ export default function NewPatientPage() {
         createdByEmail: user.email,
       };
 
-      await addDoc(collection(firestore, "patients"), {
+      const patientRef = await addDoc(collection(firestore, "patients"), {
         ...payload,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -200,8 +200,8 @@ export default function NewPatientPage() {
         nextOfKin: "",
       });
 
-      toast.success(`Patient registered. Number: ${patientNumber}`);
-      router.push("/patients");
+      toast.success(`Patient registered. Number: ${patientNumber}. Forwarding to consultation.`);
+      router.push(`/consultations?patientId=${patientRef.id}`);
     } catch (error) {
       toast.error(getFirestoreErrorMessage(error));
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -11,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { firestore } from "@/lib/firebase-client";
 import { patientStatuses } from "@/lib/mock-data";
 import { appointmentSchema } from "@/lib/validations";
 
@@ -32,9 +34,35 @@ export default function NewAppointmentPage() {
     },
   });
 
-  const onSubmit = (values: AppointmentInput) => {
-    console.log(values);
-    toast.success("Appointment scheduled");
+  const onSubmit = async (values: AppointmentInput) => {
+    if (!firestore) {
+      toast.error("Firestore is not configured. Add Firebase keys to .env.local.");
+      return;
+    }
+
+    try {
+      await addDoc(collection(firestore, "appointments"), {
+        ...values,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      form.reset({
+        patient: "",
+        doctor: "",
+        department: "",
+        appointmentDate: "",
+        appointmentTime: "",
+        visitType: "",
+        reason: "",
+        status: "Scheduled",
+        notes: "",
+      });
+
+      toast.success("Appointment scheduled");
+    } catch {
+      toast.error("Unable to save appointment. Check Firestore rules.");
+    }
   };
 
   return (
