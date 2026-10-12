@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "firebase:seed-users": "node --env-file=.env.local ./scripts/provision-firebase-users.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

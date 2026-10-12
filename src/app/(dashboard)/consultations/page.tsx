@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { addDoc, collection, limit, onSnapshot, orderBy, query, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -57,6 +57,9 @@ export default function ConsultationsPage() {
       prescriptions: "",
       nextAction: "PHARMACY",
       labTestType: "",
+      paymentMethod: "CASH",
+      insuranceProvider: "",
+      dischargeStatus: "ACTIVE",
       doctorNotes: "",
       followUpDate: "",
     },
@@ -135,7 +138,17 @@ export default function ConsultationsPage() {
       return;
     }
 
+    if (values.paymentMethod === "INSURANCE" && !values.insuranceProvider?.trim()) {
+      toast.error("Choose the insurance provider for this patient, such as SHAA.");
+      return;
+    }
+
     try {
+      const normalizedInsuranceProvider =
+        values.paymentMethod === "INSURANCE"
+          ? values.insuranceProvider?.trim() || "SHAA"
+          : null;
+
       const consultationRef = await addDoc(collection(firestore, "consultations"), {
         ...values,
         patientId: selectedPatient.id,
@@ -143,7 +156,19 @@ export default function ConsultationsPage() {
         patientName: formatPatientName(selectedPatient),
         doctorUid: user.uid,
         doctorEmail: user.email,
+        paymentMethod: values.paymentMethod,
+        insuranceProvider: normalizedInsuranceProvider,
+        dischargeStatus: values.dischargeStatus,
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await updateDoc(doc(firestore, "patients", selectedPatient.id), {
+        paymentMethod: values.paymentMethod,
+        insuranceProvider: normalizedInsuranceProvider,
+        dischargeStatus: values.dischargeStatus,
+        dischargedAt:
+          values.dischargeStatus === "DISCHARGED" ? serverTimestamp() : null,
         updatedAt: serverTimestamp(),
       });
 
@@ -192,6 +217,9 @@ export default function ConsultationsPage() {
         prescriptions: "",
         nextAction: "PHARMACY",
         labTestType: "",
+        paymentMethod: "CASH",
+        insuranceProvider: "",
+        dischargeStatus: "ACTIVE",
         doctorNotes: "",
         followUpDate: "",
       });
@@ -200,8 +228,14 @@ export default function ConsultationsPage() {
         values.nextAction === "LAB"
           ? "sent to lab first, then pharmacy"
           : "sent directly to pharmacy";
+      const paymentMessage =
+        values.paymentMethod === "INSURANCE"
+          ? `covered by ${normalizedInsuranceProvider}`
+          : "paid in cash";
 
-      toast.success(`Consultation saved for ${formatPatientName(selectedPatient)} and ${routeMessage}.`);
+      toast.success(
+        `Consultation saved for ${formatPatientName(selectedPatient)}. ${paymentMessage}. ${values.dischargeStatus === "DISCHARGED" ? "Patient has been discharged." : routeMessage + "."}`,
+      );
     } catch {
       toast.error("Unable to save consultation. Check Firestore rules and role claims.");
     }
@@ -280,6 +314,35 @@ export default function ConsultationsPage() {
               </select>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="paymentMethod">Payment Method</Label>
+              <select
+                id="paymentMethod"
+                className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm text-foreground"
+                {...form.register("paymentMethod")}
+              >
+                <option value="CASH">Cash</option>
+                <option value="INSURANCE">Insurance</option>
+              </select>
+            </div>
+
+            {form.watch("paymentMethod") === "INSURANCE" && (
+              <div className="space-y-2">
+                <Label htmlFor="insuranceProvider">Insurance Provider</Label>
+                <select
+                  id="insuranceProvider"
+                  className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm text-foreground"
+                  {...form.register("insuranceProvider")}
+                  defaultValue="SHAA"
+                >
+                  <option value="SHAA">SHAA</option>
+                  <option value="NHIF">NHIF</option>
+                  <option value="Jubilee">Jubilee</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            )}
+
             {nextAction === "LAB" && (
               <div className="space-y-2">
                 <Label htmlFor="labTestType">Blood Test Type</Label>
@@ -290,6 +353,18 @@ export default function ConsultationsPage() {
                 />
               </div>
             )}
+
+            <div className="space-y-2">
+              <Label htmlFor="dischargeStatus">Discharge Status</Label>
+              <select
+                id="dischargeStatus"
+                className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm text-foreground"
+                {...form.register("dischargeStatus")}
+              >
+                <option value="ACTIVE">Active / Under Care</option>
+                <option value="DISCHARGED">Discharged</option>
+              </select>
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="followUpDate">Follow-up Date</Label>

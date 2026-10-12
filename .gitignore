@@ -15,10 +15,14 @@
 
 # next.js
 /.next/
+/.next-local/
 /out/
 
 # production
 /build
+
+# local debug files
+/debug.log
 
 # misc
 .DS_Store

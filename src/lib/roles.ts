@@ -30,6 +30,9 @@ export function resolveUserRole(
 
   const normalizedEmail = email?.toLowerCase() ?? "";
 
+  if (normalizedEmail === "doctor@gmail.com") return "DOCTOR";
+  if (normalizedEmail === "reception@gmail.com") return "RECEPTIONIST";
+  if (normalizedEmail === "admin@gmail.com") return "ADMINISTRATOR";
   if (normalizedEmail === "jafredjin@gmail.com") return "RECEPTIONIST";
 
   if (normalizedEmail.includes("admin")) return "ADMINISTRATOR";

@@ -21,6 +21,10 @@ type PatientRecord = {
   gender: string;
   phoneNumber: string;
   email?: string | null;
+  paymentMethod?: string | null;
+  insuranceProvider?: string | null;
+  dischargeStatus?: "ACTIVE" | "DISCHARGED" | null;
+  dischargedAt?: Timestamp | null;
   createdAt?: Timestamp;
 };
 
@@ -36,6 +40,14 @@ function formatCreatedAt(createdAt?: Timestamp) {
   return createdAt.toDate().toLocaleString();
 }
 
+function getStatusBadge(status?: string | null) {
+  if (status === "DISCHARGED") {
+    return <span className="rounded-full bg-[#dff7ea] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#1d6f45]">Discharged</span>;
+  }
+
+  return <span className="rounded-full bg-[#eaf3ff] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#1a4e8c]">Active</span>;
+}
+
 export default function PatientsListPage() {
   const { user } = useAuth();
   const firestoreUnavailable = !firestore;
@@ -46,8 +58,64 @@ export default function PatientsListPage() {
   const [loading, setLoading] = useState(!firestoreUnavailable);
   const [error, setError] = useState<string | null>(firestoreConfigError);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [dischargedSearch, setDischargedSearch] = useState("");
+  const [showOnlyDischarged, setShowOnlyDischarged] = useState(false);
 
+  const activePatients = patients.filter((patient) => patient.dischargeStatus !== "DISCHARGED");
+  const dischargedPatients = patients.filter((patient) => patient.dischargeStatus === "DISCHARGED");
+  const filteredDischargedPatients = dischargedPatients.filter((patient) => {
+    const term = dischargedSearch.trim().toLowerCase();
+
+    if (!term) {
+      return true;
+    }
+
+    const fullName = formatPatientName(patient).toLowerCase();
+    return (
+      patient.patientNumber?.toLowerCase().includes(term)
+      || fullName.includes(term)
+      || patient.phoneNumber?.toLowerCase().includes(term)
+      || patient.insuranceProvider?.toLowerCase().includes(term)
+    );
+  });
   const canDelete = user?.role === "ADMINISTRATOR";
+
+  const exportDischargedPatients = () => {
+    if (filteredDischargedPatients.length === 0) {
+      toast("No discharged patients to export.");
+      return;
+    }
+
+    const csvRows = [
+      ["Status", "Patient Number", "Full Name", "Gender", "Phone", "Insurance", "Payment", "Discharged At"],
+      ...filteredDischargedPatients.map((patient) => [
+        "DISCHARGED",
+        patient.patientNumber,
+        formatPatientName(patient),
+        patient.gender,
+        patient.phoneNumber,
+        patient.insuranceProvider || "-",
+        patient.paymentMethod || "-",
+        patient.dischargedAt ? patient.dischargedAt.toDate().toISOString() : "-",
+      ]),
+    ];
+
+    const csvContent = csvRows
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "discharged-patients.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+
+    toast.success("Discharged patient list exported.");
+  };
 
   const deletePatient = async (patientId: string, patientNumber: string) => {
     if (!firestore) {
@@ -117,7 +185,7 @@ export default function PatientsListPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Registered Patients</CardTitle>
+            <CardTitle>Active Patients</CardTitle>
           </CardHeader>
           <CardContent>
             {error && (
@@ -126,29 +194,33 @@ export default function PatientsListPage() {
 
             {loading ? (
               <p className="text-sm text-muted">Loading patients...</p>
-            ) : patients.length === 0 ? (
-              <p className="text-sm text-muted">No patients found yet.</p>
+            ) : activePatients.length === 0 ? (
+              <p className="text-sm text-muted">No active patients at the moment.</p>
             ) : (
               <Table>
                 <thead>
                   <tr>
+                    <TH>Status</TH>
                     <TH>Patient No.</TH>
                     <TH>Full Name</TH>
                     <TH>Gender</TH>
                     <TH>Phone</TH>
                     <TH>Email</TH>
+                    <TH>Payment</TH>
                     <TH>Registered At</TH>
                     <TH>Actions</TH>
                   </tr>
                 </thead>
                 <tbody>
-                  {patients.map((patient) => (
+                  {activePatients.map((patient) => (
                     <tr key={patient.id} className="border-t border-border">
+                      <TD>{getStatusBadge(patient.dischargeStatus)}</TD>
                       <TD className="font-semibold text-foreground">{patient.patientNumber}</TD>
                       <TD>{formatPatientName(patient)}</TD>
                       <TD>{patient.gender}</TD>
                       <TD>{patient.phoneNumber}</TD>
                       <TD>{patient.email || "-"}</TD>
+                      <TD>{patient.paymentMethod || "-"}</TD>
                       <TD>{formatCreatedAt(patient.createdAt)}</TD>
                       <TD>
                         {canDelete ? (
@@ -164,6 +236,71 @@ export default function PatientsListPage() {
                           <span className="text-xs text-muted">View only</span>
                         )}
                       </TD>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Discharged Patients</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <input
+                value={dischargedSearch}
+                onChange={(event) => setDischargedSearch(event.target.value)}
+                placeholder="Search discharged patients by name, patient number, phone, or insurance"
+                className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm text-foreground"
+              />
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-sm text-muted">
+                  <input
+                    type="checkbox"
+                    checked={showOnlyDischarged}
+                    onChange={(event) => setShowOnlyDischarged(event.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  Show only discharged
+                </label>
+                <Button size="sm" variant="outline" onClick={exportDischargedPatients}>
+                  Export CSV
+                </Button>
+              </div>
+            </div>
+
+            {dischargedPatients.length === 0 ? (
+              <p className="text-sm text-muted">No discharged patients yet.</p>
+            ) : filteredDischargedPatients.length === 0 ? (
+              <p className="text-sm text-muted">No matching discharged patients found.</p>
+            ) : (
+              <Table>
+                <thead>
+                  <tr>
+                    <TH>Status</TH>
+                    <TH>Patient No.</TH>
+                    <TH>Full Name</TH>
+                    <TH>Gender</TH>
+                    <TH>Phone</TH>
+                    <TH>Insurance</TH>
+                    <TH>Payment</TH>
+                    <TH>Discharged At</TH>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(showOnlyDischarged ? filteredDischargedPatients : filteredDischargedPatients).map((patient) => (
+                    <tr key={patient.id} className="border-t border-border">
+                      <TD>{getStatusBadge(patient.dischargeStatus)}</TD>
+                      <TD className="font-semibold text-foreground">{patient.patientNumber}</TD>
+                      <TD>{formatPatientName(patient)}</TD>
+                      <TD>{patient.gender}</TD>
+                      <TD>{patient.phoneNumber}</TD>
+                      <TD>{patient.insuranceProvider || "-"}</TD>
+                      <TD>{patient.paymentMethod || "-"}</TD>
+                      <TD>{patient.dischargedAt ? patient.dischargedAt.toDate().toLocaleString() : "-"}</TD>
                     </tr>
                   ))}
                 </tbody>

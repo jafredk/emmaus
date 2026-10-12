@@ -63,6 +63,15 @@ service cloud.firestore {
       return signedIn() && (isAdmin() || isReceptionist());
     }
 
+    function canUpdatePatientStatus() {
+      return isAdmin() || (
+        isDoctor() &&
+        request.resource.data.paymentMethod in ["CASH", "INSURANCE"] &&
+        request.resource.data.dischargeStatus in ["ACTIVE", "DISCHARGED"] &&
+        request.resource.data.keys().hasAny(["paymentMethod", "dischargeStatus"])
+      );
+    }
+
     function canCreateConsultation() {
       return signedIn() && (isAdmin() || isDoctor());
     }
@@ -87,7 +96,7 @@ service cloud.firestore {
         && request.resource.data.createdByEmail is string
         && request.resource.data.createdByEmail.lower() == request.auth.token.email.lower();
 
-      allow update: if isAdmin();
+      allow update: if canUpdatePatientStatus();
       allow delete: if isAdmin();
     }
 

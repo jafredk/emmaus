@@ -57,6 +57,9 @@ export const consultationSchema = z.object({
   prescriptions: z.string().min(2, "Enter at least one prescribed medicine"),
   nextAction: z.enum(["LAB", "PHARMACY"]),
   labTestType: z.string().optional(),
+  paymentMethod: z.enum(["CASH", "INSURANCE"]),
+  insuranceProvider: z.string().optional(),
+  dischargeStatus: z.enum(["ACTIVE", "DISCHARGED"]),
   doctorNotes: z.string().min(4),
   followUpDate: z.string().optional(),
 });
